@@ -1,9 +1,8 @@
 // Service worker : l'app, les modèles et le dictionnaire déjà consultés restent disponibles hors ligne.
-const VERSION = "v1";
+const VERSION = "v2";
 const SHELL = [
   "./", "index.html", "styles.css", "manifest.webmanifest", "icon.svg",
   "js/app.js", "js/ocr.js", "js/ocr-core.js", "js/dict.js", "js/store.js",
-  "models/det.onnx", "models/rec.onnx", "models/keys.txt",
 ];
 
 self.addEventListener("install", (e) => {
@@ -21,7 +20,10 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
   const url = new URL(e.request.url);
-  const heavy = /\/(models|dict)\//.test(url.pathname) || url.hostname === "cdn.jsdelivr.net";
+  // Autres domaines (CDN d'ONNX Runtime) : le navigateur s'en charge seul. Safari gère mal
+  // les modules et WebAssembly d'un autre domaine relayés par un service worker.
+  if (url.origin !== self.location.origin) return;
+  const heavy = /\/(models|dict)\//.test(url.pathname);
   e.respondWith(heavy ? cacheFirst(e.request) : networkFirst(e.request));
 });
 
