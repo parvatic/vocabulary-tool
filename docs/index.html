@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Vocab</title>
+  <meta name="theme-color" content="#1f3a5f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Vocab">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="stylesheet" href="styles.css">
+  <!-- ONNX Runtime Web : exécute les modèles PaddleOCR (WebAssembly) -->
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js"></script>
+  <script>ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/";</script>
+</head>
+<body>
+  <header>
+    <h1>Vocab</h1>
+    <nav>
+      <button class="tab active" data-view="read">Lire</button>
+      <button class="tab" data-view="list">Ma liste <span id="count"></span></button>
+    </nav>
+  </header>
+
+  <main id="view-read" class="view">
+    <label class="capture">
+      <input id="photo" type="file" accept="image/*" capture="environment" hidden>
+      <span id="capture-label">Photographier une page</span>
+    </label>
+    <p id="status" class="status" aria-live="polite"></p>
+    <div id="page" class="page" hidden>
+      <img id="page-img" alt="Page photographiée">
+      <div id="overlay" class="overlay"></div>
+    </div>
+    <p class="hint" id="hint" hidden>Touche un mot pour le traduire.</p>
+  </main>
+
+  <main id="view-list" class="view" hidden>
+    <div class="list-actions">
+      <button id="export" class="secondary">Exporter pour Anki (CSV)</button>
+    </div>
+    <ul id="list" class="cards"></ul>
+    <p id="empty" class="hint">Aucun mot pour l'instant.</p>
+  </main>
+
+  <div id="sheet" class="sheet" hidden>
+    <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="sheet-word">
+      <div class="sheet-head">
+        <input id="sheet-word" class="word-input" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <button id="sheet-search" class="icon" aria-label="Chercher">↻</button>
+        <button id="sheet-close" class="icon" aria-label="Fermer">✕</button>
+      </div>
+      <p id="sheet-sentence" class="sentence"></p>
+      <div id="sheet-results"></div>
+      <details class="manual">
+        <summary>Ajouter avec ma propre traduction</summary>
+        <div class="manual-row">
+          <input id="manual-fr" placeholder="Traduction en français">
+          <button id="manual-add">Ajouter</button>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

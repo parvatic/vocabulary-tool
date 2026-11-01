@@ -1,4 +1,7 @@
-notebook
+jupyterlab
 opencv-python-headless
 pytesseract
 pillow
+nltk
+pandas
+onnxruntime
