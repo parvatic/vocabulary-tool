@@ -1,0 +1,4 @@
+notebook
+opencv-python-headless
+pytesseract
+pillow
