@@ -10,16 +10,34 @@ const REC_MAX_WIDTH = 3200;
 
 let sessions = null;
 let charset = null;
+let loading = null; // promesse partagée : un seul chargement, même si une photo arrive pendant le préchargement
 
-export async function loadModels(onProgress = () => {}) {
-  if (sessions) return;
-  ort.env.wasm.numThreads = 1; // le multi-thread exige une isolation cross-origin (absente sur GitHub Pages)
-  onProgress("Chargement du détecteur…");
-  const det = await ort.InferenceSession.create("models/det.onnx", { executionProviders: ["wasm"] });
-  onProgress("Chargement du reconnaisseur…");
-  const rec = await ort.InferenceSession.create("models/rec.onnx", { executionProviders: ["wasm"] });
-  charset = buildCharset(await (await fetch("models/keys.txt")).text());
-  sessions = { det, rec };
+async function step(label, fn) {
+  try { return await fn(); }
+  catch (e) { throw new Error(`${label} : ${e?.message || e}`); }
+}
+
+export function loadModels(onProgress = () => {}) {
+  if (sessions) return Promise.resolve();
+  if (!loading) {
+    loading = (async () => {
+      ort.env.wasm.numThreads = 1; // le multi-thread exige une isolation cross-origin (absente sur GitHub Pages)
+      const opts = { executionProviders: ["wasm"] };
+      onProgress("Chargement du détecteur…");
+      const det = await step("models/det.onnx", () => ort.InferenceSession.create("models/det.onnx", opts));
+      onProgress("Chargement du reconnaisseur…");
+      const rec = await step("models/rec.onnx", () => ort.InferenceSession.create("models/rec.onnx", opts));
+      charset = buildCharset(await step("models/keys.txt", async () => {
+        const r = await fetch("models/keys.txt");
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.text();
+      }));
+      sessions = { det, rec };
+    })().catch((e) => { loading = null; throw e; }); // en cas d'échec, on pourra réessayer
+  } else {
+    onProgress("Chargement des modèles…");
+  }
+  return loading;
 }
 
 /** Fichier image (photo) → canvas, orientation EXIF appliquée, réduit à MAX_IMAGE_SIDE. */
