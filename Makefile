@@ -33,7 +33,7 @@ dict:
 web-dict:
 	docker run --rm -v $(PWD):/code $(IMAGE_NAME) python -m vocab.export_web
 
-# Modèles PaddleOCR (PP-OCRv4 mobile, ONNX) dans docs/models/
+# Modèles PaddleOCR PP-OCRv5 (détecteur mobile + reconnaisseur anglais, ONNX) dans docs/models/
 web-models:
 	docker run --rm -v $(PWD):/code $(IMAGE_NAME) python -m vocab.fetch_models
 
