@@ -108,7 +108,9 @@ async function search(word) {
   catch (e) { box.replaceChildren(el("p", { className: "hint", textContent: "Dictionnaire indisponible : " + e.message })); return; }
   document.querySelector("details.manual").open = !entries.length;
   if (!entries.length) {
-    box.replaceChildren(el("p", { className: "hint", textContent: "Pas trouvé. Corrige le mot ci-dessus si l'OCR s'est trompé, ou ajoute ta traduction." }));
+    const input = $("sheet-word");
+    input.focus(); input.select();
+    box.replaceChildren(el("p", { className: "hint", textContent: "Pas trouvé. Si l'OCR s'est trompé, corrige le mot dans le champ en haut puis touche « Chercher ». Sinon, ajoute ta propre traduction ci-dessous." }));
     return;
   }
   box.replaceChildren(...entries.map((e) => {
@@ -145,12 +147,12 @@ function closeSheet() { $("sheet").hidden = true; }
 
 $("sheet-close").addEventListener("click", closeSheet);
 $("sheet").addEventListener("click", (e) => { if (e.target === $("sheet")) closeSheet(); });
-$("sheet-search").addEventListener("click", () => {
+$("word-form").addEventListener("submit", (ev) => {
+  ev.preventDefault();
   current = { ...current, word: $("sheet-word").value.trim() };
   renderSentence();
   search(current.word);
 });
-$("sheet-word").addEventListener("keydown", (e) => { if (e.key === "Enter") $("sheet-search").click(); });
 $("manual-add").addEventListener("click", () => {
   const fr = $("manual-fr").value.trim();
   const word = $("sheet-word").value.trim();
@@ -176,19 +178,42 @@ function renderList() {
   }));
 }
 
-$("export").addEventListener("click", async () => {
-  const csv = store.toAnkiCsv();
-  const file = new File([csv], "vocabulaire-anki.csv", { type: "text/csv" });
+async function shareOrDownload(file) {
   if (navigator.canShare?.({ files: [file] })) {
-    try { await navigator.share({ files: [file], title: "Vocabulaire" }); return; } catch { /* annulé */ }
+    try { await navigator.share({ files: [file], title: file.name }); return; } catch { /* annulé */ }
   }
   const a = el("a", { href: URL.createObjectURL(file), download: file.name });
   a.click();
-  URL.revokeObjectURL(a.href);
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+const today = () => new Date().toISOString().slice(0, 10);
+
+$("export").addEventListener("click", () =>
+  shareOrDownload(new File([store.toAnkiCsv()], "vocabulaire-anki.csv", { type: "text/csv" })));
+
+$("backup").addEventListener("click", () =>
+  shareOrDownload(new File([store.toBackupJson()], `vocabulaire-sauvegarde-${today()}.json`, { type: "application/json" })));
+
+$("restore").addEventListener("change", async (ev) => {
+  const file = ev.target.files[0];
+  ev.target.value = "";
+  if (!file) return;
+  try {
+    const added = store.restoreFromJson(await file.text());
+    renderList(); updateCount();
+    toast(added ? `${added} mot(s) restauré(s)` : "Rien de nouveau dans cette sauvegarde");
+  } catch (e) { alert("Restauration impossible : " + e.message); }
 });
 
+function renderStorageStatus() {
+  $("storage-status").textContent = store.isPersisted()
+    ? "Enregistré sur ce téléphone, en stockage persistant. Pense à sauvegarder de temps en temps."
+    : "Enregistré sur ce téléphone. Pour ne rien perdre, utilise l'app depuis l'écran d'accueil et sauvegarde de temps en temps.";
+}
+
 // ---- Démarrage -----------------------------------------------------------------------------
-updateCount();
+store.init().then(() => { updateCount(); renderStorageStatus(); renderList(); });
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 // Précharge les modèles en arrière-plan pour que la première photo soit plus rapide
 loadModels().catch((e) => ($("status").textContent = "Modèles OCR introuvables : " + e.message));
