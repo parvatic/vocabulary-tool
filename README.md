@@ -9,7 +9,7 @@ Tout est **gratuit et hors ligne** : pas de LLM ni d'API payante. L'OCR tourne d
 ## Fonctionnement
 
 ```
-Photo ─► Détection du texte (DBNet) ─► Reconnaissance (SVTR + CTC) ─► mots cliquables
+Photo ─► Détection des lignes (DBNet) ─► Redressement + éclairage ─► Reconnaissance (SVTR + CTC) ─► mots cliquables
                                                                           │ tap
                                                                           ▼
                          Dictionnaire local (Wiktionnaire + WordNet) : lemme, sens, traductions FR, synonymes
@@ -18,7 +18,11 @@ Photo ─► Détection du texte (DBNet) ─► Reconnaissance (SVTR + CTC) ─�
                                                   Liste de vocabulaire ─► export CSV Anki
 ```
 
-- **OCR** : modèles PaddleOCR PP-OCRv4 *mobile* au format ONNX, exécutés dans le navigateur par ONNX Runtime Web. Le détecteur renvoie des lignes ; les boîtes de chaque mot sont retrouvées grâce aux pas de temps du décodage CTC.
+- **OCR** : modèles PaddleOCR PP-OCRv5 au format ONNX (détecteur *mobile*, reconnaisseur anglais), exécutés dans le navigateur par ONNX Runtime Web.
+  - Chaque ligne détectée est **redressée le long de sa courbe** : on estime sa ligne centrale tranche par tranche, ce qui corrige à la fois l'inclinaison de la photo et la courbure de la page près de la reliure.
+  - L'**éclairage** est corrigé colonne par colonne (ombre de la reliure), puis la ligne est lue **par morceaux d'environ 320 px**, coupés dans les espaces entre les mots : le reconnaisseur décroche sur une ligne entière.
+  - Les boîtes de chaque mot sont retrouvées grâce aux pas de temps du décodage CTC.
+  - Mesuré sur des photos de page simulées (inclinaison, courbure, ombre, flou, bruit, JPEG) : 99 à 100 % des mots lus, contre 0 % pour la première version dès que la page penche.
 - **Lemmatisation** : *ran* → *run* (verbe), *neighbours* → *neighbour*, via les formes fléchies du Wiktionnaire.
 - **Traductions** : groupées par sens, pour choisir celle qui correspond à la phrase.
 - **Mots coupés** en fin de ligne (*neigh-* / *bours*) : recollés automatiquement.
@@ -28,7 +32,7 @@ Photo ─► Détection du texte (DBNet) ─► Reconnaissance (SVTR + CTC) ─�
 Prérequis : Docker.
 
 ```bash
-make build        # image Docker (Tesseract, NLTK + WordNet, ONNX Runtime, JupyterLab)
+make build        # image Docker (Tesseract, NLTK + WordNet, JupyterLab)
 make dict         # une fois : télécharge le Wiktionnaire → data/en_fr.sqlite (~15-30 min)
 make web          # dictionnaire compact docs/dict/ + modèles PaddleOCR docs/models/
 make serve        # sert l'app sur http://localhost:8000 (et sur l'IP du Mac pour le Wi-Fi local)
@@ -51,7 +55,7 @@ docs/                    Web app (PWA) déployée
   index.html, styles.css
   js/app.js              Interface : photo, mots cliquables, fiche, liste, export
   js/ocr.js              Exécution des modèles avec ONNX Runtime Web
-  js/ocr-core.js         Fonctions pures : post-traitement DBNet, décodage CTC, phrases, césures
+  js/ocr-core.js         Fonctions pures : lignes DBNet, redressement, éclairage, découpage, CTC, phrases, césures
   js/ocr-core.test.mjs   Tests : node --test docs/js/ocr-core.test.mjs
   js/dict.js             Recherche dans le dictionnaire découpé (docs/dict/<xx>.json)
   js/store.js            Liste de vocabulaire (localStorage) + export CSV Anki
@@ -61,7 +65,7 @@ docs/                    Web app (PWA) déployée
 vocab/                   Chaîne Python
   build_dict.py          Wiktionnaire (kaikki.org) → data/en_fr.sqlite
   export_web.py          data/en_fr.sqlite → docs/dict/ (entrées avec traduction FR, synonymes WordNet)
-  fetch_models.py        Modèles PaddleOCR ONNX (via le paquet RapidOCR) → docs/models/
+  fetch_models.py        Modèles PaddleOCR ONNX (Hugging Face, versions figées et vérifiées) → docs/models/
   dictionary.py          Recherche + lemmatisation (Python)
   ocr.py                 OCR Tesseract avec boîtes par mot (notebook)
   synonyms.py            WordNet (NLTK)
@@ -81,5 +85,5 @@ notebook.ipynb           Premier essai OCR (Tesseract)
 
 - Dictionnaire : [Wiktionnaire anglais](https://en.wiktionary.org/), extrait par [wiktextract / kaikki.org](https://kaikki.org/) — CC BY-SA 4.0.
 - Synonymes : [WordNet](https://wordnet.princeton.edu/) (Princeton University) — licence WordNet.
-- OCR : [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) (Apache 2.0), modèles ONNX distribués par [RapidOCR](https://github.com/RapidAI/RapidOCR) (Apache 2.0).
+- OCR : [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) PP-OCRv5 (Apache 2.0) ; conversions ONNX de [monkt/paddleocr-onnx](https://huggingface.co/monkt/paddleocr-onnx) (reconnaisseur anglais) et [nakamura196/ppocrv5-mobile-web-onnx](https://huggingface.co/nakamura196/ppocrv5-mobile-web-onnx) (détecteur), Apache 2.0.
 - Exécution : [ONNX Runtime Web](https://onnxruntime.ai/) (MIT).

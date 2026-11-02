@@ -1,5 +1,5 @@
 // Service worker : l'app, les modèles et le dictionnaire déjà consultés restent disponibles hors ligne.
-const VERSION = "v2";
+const VERSION = "v3";
 const SHELL = [
   "./", "index.html", "styles.css", "manifest.webmanifest", "icon.svg",
   "js/app.js", "js/ocr.js", "js/ocr-core.js", "js/dict.js", "js/store.js",

@@ -40,18 +40,24 @@
   <main id="view-list" class="view" hidden>
     <div class="list-actions">
       <button id="export" class="secondary">Exporter pour Anki (CSV)</button>
+      <button id="backup" class="secondary">Sauvegarder</button>
+      <label class="secondary file-btn">Restaurer<input id="restore" type="file" accept="application/json,.json" hidden></label>
     </div>
+    <p id="storage-status" class="hint storage-status"></p>
     <ul id="list" class="cards"></ul>
     <p id="empty" class="hint">Aucun mot pour l'instant.</p>
   </main>
 
   <div id="sheet" class="sheet" hidden>
     <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="sheet-word">
-      <div class="sheet-head">
-        <input id="sheet-word" class="word-input" autocomplete="off" autocapitalize="off" spellcheck="false">
-        <button id="sheet-search" class="icon" aria-label="Chercher">↻</button>
+      <div class="sheet-top">
+        <label for="sheet-word" class="field-label">Mot lu sur la page <span>(modifiable)</span></label>
         <button id="sheet-close" class="icon" aria-label="Fermer">✕</button>
       </div>
+      <form id="word-form" class="sheet-head">
+        <input id="sheet-word" class="word-input" enterkeyhint="search" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+        <button id="sheet-search" type="submit" class="search-btn">Chercher</button>
+      </form>
       <p id="sheet-sentence" class="sentence"></p>
       <div id="sheet-results"></div>
       <details class="manual">
