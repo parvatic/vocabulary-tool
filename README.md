@@ -26,6 +26,7 @@ Photo ─► Détection des lignes (DBNet) ─► Redressement + éclairage ─�
 - **Lemmatisation** : *ran* → *run* (verbe), *neighbours* → *neighbour*, via les formes fléchies du Wiktionnaire.
 - **Traductions** : groupées par sens, pour choisir celle qui correspond à la phrase.
 - **Mots coupés** en fin de ligne (*neigh-* / *bours*) : recollés automatiquement.
+- **Expressions** : en touchant un mot, l'app cherche dans la phrase les expressions du dictionnaire qui le contiennent — verbes à particule (*looked into* → *look into*, *turned the offer down* → *turn down*), verbes prépositionnels (*put up with*), locutions (*in spite of*, *made up her mind* → *make up one's mind*) — et les propose avant le mot seul. Sans traduction française dans le Wiktionnaire, on affiche la définition anglaise et tu saisis ta traduction.
 
 ## Démarrage
 
@@ -56,8 +57,9 @@ docs/                    Web app (PWA) déployée
   js/app.js              Interface : photo, mots cliquables, fiche, liste, export
   js/ocr.js              Exécution des modèles avec ONNX Runtime Web
   js/ocr-core.js         Fonctions pures : lignes DBNet, redressement, éclairage, découpage, CTC, phrases, césures
-  js/ocr-core.test.mjs   Tests : node --test docs/js/ocr-core.test.mjs
+  js/*.test.mjs          Tests : node --test docs/js/*.test.mjs
   js/dict.js             Recherche dans le dictionnaire découpé (docs/dict/<xx>.json)
+  js/expr.js             Repérage des expressions (verbes à particule, locutions) dans la phrase
   js/store.js            Liste de vocabulaire (localStorage) + export CSV Anki
   sw.js                  Service worker (hors ligne)
   dict/                  Dictionnaire compact, généré par `make web-dict`

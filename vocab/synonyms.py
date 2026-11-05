@@ -37,7 +37,7 @@ def synonyms(lemma: str, pos: str | None = None, max_senses: int = 4) -> list[st
     if not AVAILABLE:
         return []
     wn_pos = _POS.get(pos or "")
-    synsets = wn.synsets(lemma, pos=wn_pos) if wn_pos or pos is None else []
+    synsets = wn.synsets(lemma.replace(" ", "_"), pos=wn_pos) if wn_pos or pos is None else []
     out = []
     for s in synsets[:max_senses]:
         for l in s.lemmas():

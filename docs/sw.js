@@ -1,8 +1,8 @@
 // Service worker : l'app, les modèles et le dictionnaire déjà consultés restent disponibles hors ligne.
-const VERSION = "v3";
+const VERSION = "v4";
 const SHELL = [
   "./", "index.html", "styles.css", "manifest.webmanifest", "icon.svg",
-  "js/app.js", "js/ocr.js", "js/ocr-core.js", "js/dict.js", "js/store.js",
+  "js/app.js", "js/ocr.js", "js/ocr-core.js", "js/dict.js", "js/expr.js", "js/store.js",
 ];
 
 self.addEventListener("install", (e) => {

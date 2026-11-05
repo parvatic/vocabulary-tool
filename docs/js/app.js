@@ -1,6 +1,6 @@
 import { imageToCanvas, readPage, loadModels } from "./ocr.js";
 import { sentenceOf, cleanToken } from "./ocr-core.js";
-import { lookup } from "./dict.js";
+import { lookup, expressionsAround } from "./dict.js";
 import * as store from "./store.js";
 
 const $ = (id) => document.getElementById(id);
@@ -77,19 +77,40 @@ function select(w, btn) {
   document.querySelectorAll(".w.selected").forEach((x) => x.classList.remove("selected"));
   btn.classList.add("selected");
   const text = cleanToken(w.full);
-  current = { word: text, sentence: sentenceOf(page.words, w) };
+  current = { word: text, sentence: sentenceOf(page.words, w), context: contextOf(page.words, w) };
   openSheet(text);
+}
+
+/** Mots voisins du mot touché (même paragraphe), pour repérer les expressions (look into…). */
+function contextOf(words, w) {
+  const idx = w.parts ? w.parts[0] : w.index;
+  const list = [];
+  for (let j = Math.max(0, idx - 8); j < Math.min(words.length, idx + 9); j++) {
+    const x = words[j];
+    if (x.para !== w.para || (x.parts && x.index !== x.parts[0])) continue;
+    list.push({ raw: x.full, index: x.index });
+  }
+  return { tokens: list.map((t) => t.raw), i: list.findIndex((t) => t.index === idx) };
 }
 
 // ---- Fiche de traduction ----------------------------------------------------------------
 function escapeRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 
-function renderSentence() {
+/** Phrase avec les mots `marks` surlignés, dans l'ordre (par défaut : le mot cherché). */
+function renderSentence(marks) {
   const s = $("sheet-sentence");
   s.replaceChildren();
   if (!current?.sentence) return;
-  const parts = current.sentence.split(new RegExp(`(${escapeRe(current.word)})`, "i"));
-  parts.forEach((p, i) => s.append(i % 2 ? el("mark", { textContent: p }) : p));
+  const text = current.sentence;
+  let pos = 0;
+  for (const m of (marks?.length ? marks : [current.word]).map((x) => cleanToken(x)).filter(Boolean)) {
+    const r = new RegExp(`(^|[^\\p{L}])(${escapeRe(m)})(?![\\p{L}])`, "iu").exec(text.slice(pos));
+    if (!r) continue;
+    const at = pos + r.index + r[1].length;
+    s.append(text.slice(pos, at), el("mark", { textContent: r[2] }));
+    pos = at + r[2].length;
+  }
+  s.append(text.slice(pos));
 }
 
 async function openSheet(word) {
@@ -103,39 +124,78 @@ async function openSheet(word) {
 async function search(word) {
   const box = $("sheet-results");
   box.replaceChildren(el("p", { className: "hint", textContent: "Recherche…" }));
-  let entries;
-  try { entries = await lookup(word); }
-  catch (e) { box.replaceChildren(el("p", { className: "hint", textContent: "Dictionnaire indisponible : " + e.message })); return; }
-  document.querySelector("details.manual").open = !entries.length;
-  if (!entries.length) {
+  let entries, exprs = [];
+  try {
+    entries = await lookup(word);
+    exprs = await expressionsInContext(word);
+  } catch (e) { box.replaceChildren(el("p", { className: "hint", textContent: "Dictionnaire indisponible : " + e.message })); return; }
+  const nothing = !entries.length && !exprs.length;
+  document.querySelector("details.manual").open = nothing;
+  renderSentence(exprs[0]?.marks);
+  if (nothing) {
     const input = $("sheet-word");
     input.focus(); input.select();
     box.replaceChildren(el("p", { className: "hint", textContent: "Pas trouvé. Si l'OCR s'est trompé, corrige le mot dans le champ en haut puis touche « Chercher ». Sinon, ajoute ta propre traduction ci-dessous." }));
     return;
   }
-  box.replaceChildren(...entries.map((e) => {
-    const head = el("div", { className: "entry-head" },
-      el("span", { className: "lemma", textContent: e.word }),
-      el("span", { className: "pos", textContent: e.pos }));
-    if (e.via) head.append(el("span", { className: "via", textContent: e.via }));
-    const senses = Object.entries(e.fr).map(([sense, fr]) => {
-      const b = el("button", { className: "sense" },
-        el("span", {}, el("span", { className: "fr", textContent: fr.join(", ") }),
-          el("span", { className: "label", textContent: sense || "sens non précisé" })),
-        el("span", { className: "plus", textContent: "+" }));
-      b.addEventListener("click", () => addWord(e, fr.join("; "), sense));
-      return b;
-    });
-    const node = el("div", { className: "entry" }, head, ...senses);
-    if (e.syn.length) node.append(el("p", { className: "syn", textContent: "≈ " + e.syn.join(", ") }));
-    if (e.gloss.length) node.append(el("ol", { className: "gloss" }, ...e.gloss.map((g) => el("li", { textContent: g }))));
-    return node;
-  }));
+  const blocks = [];
+  if (exprs.length) {
+    blocks.push(el("p", { className: "section", textContent: "Dans cette phrase" }));
+    for (const x of exprs) for (const e of x.entries) blocks.push(renderEntry(e, x));
+    if (entries.length) blocks.push(el("p", { className: "section", textContent: `Le mot seul : ${word}` }));
+  }
+  blocks.push(...entries.map((e) => renderEntry(e)));
+  box.replaceChildren(...blocks);
 }
 
-function addWord(entry, french, definition) {
+/** Expressions de la phrase qui contiennent le mot (éventuellement corrigé à la main). */
+async function expressionsInContext(word) {
+  const ctx = current?.context;
+  if (!ctx || ctx.i < 0 || /\s/.test(word)) return [];
+  const tokens = [...ctx.tokens];
+  const raw = tokens[ctx.i];
+  if (cleanToken(raw).toLowerCase() !== word.toLowerCase()) {
+    tokens[ctx.i] = word + (raw.match(/[.,;:!?…—–)\]"”]+$/)?.[0] ?? ""); // garde la ponctuation
+  }
+  return expressionsAround(tokens, ctx.i);
+}
+
+/** Une entrée du dictionnaire ; `expr` si elle vient d'une expression trouvée dans la phrase. */
+function renderEntry(e, expr = null) {
+  const head = el("div", { className: "entry-head" },
+    el("span", { className: "lemma", textContent: e.word }),
+    el("span", { className: "pos", textContent: e.pos }));
+  if (expr) head.append(el("span", { className: "pill", textContent: "expression" }));
+  if (e.via) head.append(el("span", { className: "via", textContent: e.via }));
+  const senses = Object.entries(e.fr).map(([sense, fr]) => {
+    const b = el("button", { className: "sense" },
+      el("span", {}, el("span", { className: "fr", textContent: fr.join(", ") }),
+        el("span", { className: "label", textContent: sense || "sens non précisé" })),
+      el("span", { className: "plus", textContent: "+" }));
+    b.addEventListener("click", () => addWord(e, fr.join("; "), sense, expr));
+    return b;
+  });
+  const node = el("div", { className: "entry" + (expr ? " entry-expr" : "") }, head, ...senses);
+  if (e.syn.length) node.append(el("p", { className: "syn", textContent: "≈ " + e.syn.join(", ") }));
+  if (e.gloss.length) node.append(el("ol", { className: "gloss" }, ...e.gloss.map((g) => el("li", { textContent: g }))));
+  if (!senses.length) {
+    // Pas de traduction française dans le dictionnaire : on garde la définition, tu traduis
+    const input = el("input", { placeholder: "Ta traduction en français" });
+    const btn = el("button", { textContent: "Ajouter" });
+    btn.addEventListener("click", () => {
+      const fr = input.value.trim();
+      if (fr) addWord(e, fr, e.gloss[0] || "", expr); else input.focus();
+    });
+    input.addEventListener("keydown", (ev) => { if (ev.key === "Enter") btn.click(); });
+    node.append(el("p", { className: "hint left", textContent: "Pas de traduction française dans le dictionnaire." }),
+      el("div", { className: "manual-row" }, input, btn));
+  }
+  return node;
+}
+
+function addWord(entry, french, definition, expr = null) {
   const n = store.add({
-    word: current?.word ?? entry.word, lemma: entry.word, pos: entry.pos, french,
+    word: expr ? expr.text : current?.word ?? entry.word, lemma: entry.word, pos: entry.pos, french,
     synonyms: entry.syn.slice(0, 6).join("; "), definition, sentence: current?.sentence ?? "",
   });
   updateCount();
@@ -150,7 +210,6 @@ $("sheet").addEventListener("click", (e) => { if (e.target === $("sheet")) close
 $("word-form").addEventListener("submit", (ev) => {
   ev.preventDefault();
   current = { ...current, word: $("sheet-word").value.trim() };
-  renderSentence();
   search(current.word);
 });
 $("manual-add").addEventListener("click", () => {

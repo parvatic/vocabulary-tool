@@ -81,6 +81,9 @@ nav { display: flex; gap: 4px; background: var(--line); padding: 3px; border-rad
 .sentence mark { background: var(--mark-strong); color: inherit; border-radius: 2px; padding: 0 1px; }
 
 .entry { border-top: 1px solid var(--line); padding: 10px 0; }
+.section { margin: 14px 0 2px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.pill { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: var(--mark-strong); color: var(--ink); }
+.hint.left { text-align: left; margin: 8px 0 0; }
 .entry-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
 .lemma { font: 600 18px Georgia, serif; }
 .pos { font-size: 13px; color: var(--muted); }

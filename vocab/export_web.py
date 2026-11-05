@@ -5,7 +5,8 @@ un petit fichier par préfixe de deux lettres. Le téléphone ne télécharge qu
 fichier du mot cherché, puis le garde en cache hors ligne.
 
 On ne garde que :
-  * les entrées qui ont au moins une traduction française ;
+  * les entrées qui ont au moins une traduction française, et les expressions de plusieurs
+    mots (verbes à particule, locutions) même sans traduction, avec leur définition anglaise ;
   * quelques définitions anglaises courtes par entrée ;
   * les synonymes (Wiktionnaire + WordNet, précalculés ici : pas de WordNet sur le téléphone) ;
   * les formes fléchies (« ran » → « run ») dont le lemme est gardé.
@@ -28,6 +29,9 @@ from . import synonyms as wn_syn
 DEFAULT_OUT = Path(__file__).resolve().parent.parent / "docs" / "dict"
 MAX_GLOSSES = 4
 MAX_SYNONYMS = 10
+# Expressions de plusieurs mots gardées même sans traduction française (avec leur définition
+# anglaise) : verbes à particule, locutions… mais pas les noms composés ni les noms propres.
+GLOSS_ONLY_POS = {"verb", "phrase", "prep_phrase", "adv", "prep", "conj", "adj"}
 
 
 def shard_key(word: str) -> str:
@@ -43,7 +47,7 @@ def compact_entry(word: str, pos: str, data: dict) -> dict | None:
         lst = fr.setdefault(t["sense"], [])
         if t["word"] not in lst:
             lst.append(t["word"])
-    if not fr:
+    if not fr and not (" " in word and pos in GLOSS_ONLY_POS):
         return None
     syns = list(data["synonyms"])
     for s in data["senses"]:
